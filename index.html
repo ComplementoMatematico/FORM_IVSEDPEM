@@ -759,6 +759,29 @@
 
   </form>
 
+  <!-- ── CAJA DE ÉXITO (oculta hasta enviar) ── -->
+  <div id="successBox" style="display:none; text-align:center; padding: 3rem 2rem; animation: fadeInUp 0.5s ease;">
+    <div style="font-size:3.5rem; margin-bottom:1rem;">🎉</div>
+    <div style="font-family:'Playfair Display',serif; font-size:1.8rem; font-weight:700; color:var(--accent2); margin-bottom:0.8rem;">
+      ¡Inscripción confirmada!
+    </div>
+    <div style="font-size:1rem; color:var(--text); margin-bottom:0.5rem;">
+      Gracias, <strong id="successNombre"></strong>. Tu inscripción al <strong>SE²D–PEM · UBB 2026</strong> ha sido registrada.
+    </div>
+    <div style="font-size:0.88rem; color:var(--text-muted); line-height:1.8; margin-bottom:2rem;">
+      Recibirás un correo de confirmación en <strong style="color:var(--accent)" id="successCorreo"></strong>.<br>
+      <span style="font-size:0.8rem;">Si no lo ves pronto, revisa tu carpeta de spam.</span>
+    </div>
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:1.2rem 2rem; display:inline-block; margin-bottom:2rem;">
+      <div style="font-family:'DM Mono',monospace; font-size:0.72rem; letter-spacing:0.15em; color:var(--accent); text-transform:uppercase; margin-bottom:0.6rem;">📅 Fechas del evento</div>
+      <div style="font-size:0.9rem; color:var(--text); line-height:2;">
+        Martes 07 · Miércoles 08 · Jueves 09 de Julio, 2026<br>
+        <span style="color:var(--text-muted); font-size:0.82rem;">Facultad de Ed. y Humanidades · Campus La Castilla · Chillán</span>
+      </div>
+    </div>
+    <div style="font-size:0.85rem; color:var(--text-muted);">¡Nos vemos pronto! 🧮</div>
+  </div>
+
   <div class="footer">
     <p>Organizado por la <strong>Escuela de Pedagogía en Educación Matemática</strong> · Universidad del Bío-Bío</p>
     <p style="margin-top:0.4rem;">Campus La Castilla · Av. Brasil 1180, Chillán, Región de Ñuble</p>
@@ -879,6 +902,10 @@
       fd.set('rol', 'Otro: ' + document.getElementById('rolOtroInput').value.trim());
     }
 
+    // Guardar datos antes del reset para usarlos en el mensaje
+    const correoEnviado = fd.get('correo') || '';
+    const nombreEnviado = fd.get('primer_nombre') || '';
+
     // Nombre completo compuesto para Google Sheets
     const pn = fd.get('primer_nombre') || '';
     const sn = fd.get('segundo_nombre') || '';
@@ -887,40 +914,33 @@
     fd.set('nombre_completo', [pn, sn, pa, sa].filter(Boolean).join(' '));
 
     try {
+      // Usamos no-cors porque Apps Script no devuelve cabeceras CORS en POST
+      // no-cors siempre "resuelve" (no lanza error) si la red está OK
       await fetch(this.action, {
         method: 'POST',
         mode: 'no-cors',
         body: fd
       });
 
-      status.className = 'status-msg success';
-      const correoEnviado = fd.get('correo') || '';
-      const nombreEnviado = fd.get('primer_nombre') || '';
-      status.innerHTML = `
-        <div style="font-size:2.2rem;margin-bottom:0.5rem;">🎉</div>
-        <div style="font-size:1.15rem;font-weight:700;margin-bottom:0.4rem;">¡Inscripción enviada con éxito, ${nombreEnviado}!</div>
-        <div style="font-size:0.87rem;opacity:0.85;line-height:1.7;">
-          Hemos recibido tu inscripción al <strong>SE²D–PEM · UBB 2026</strong>.<br>
-          En breve recibirás un correo de confirmación en <strong>${correoEnviado}</strong>.<br>
-          <span style="opacity:0.7;">Si no lo ves, revisa tu carpeta de spam.</span>
-        </div>
-        <div style="margin-top:1rem;font-size:0.82rem;opacity:0.6;">¡Nos vemos en Chillán el 7, 8 y 9 de Julio! 🧮</div>
-      `;
+      // Mostrar mensaje de éxito y ocultar el formulario completo
+      document.getElementById('mainForm').style.display = 'none';
 
-      this.reset();
-      document.querySelectorAll('.activity-card.selected').forEach(c => c.classList.remove('selected'));
-      document.getElementById('otro-text').style.display = 'none';
-      document.getElementById('rolSeleccionaNota').style.display = 'flex';
-      document.getElementById('restrictionNote').style.display = 'none';
-      // Resetear cursillos a locked
-      ['cursillo1','cursillo2','cursillo3'].forEach(id => {
-        const card = document.querySelector(`[data-id="${id}"]`);
-        card.classList.add('locked');
-      });
+      const successBox = document.getElementById('successBox');
+      successBox.style.display = 'block';
+      document.getElementById('successNombre').textContent = nombreEnviado;
+      document.getElementById('successCorreo').textContent = correoEnviado;
+
+      // Scroll al mensaje
+      successBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     } catch(err) {
+      // Sólo llega aquí si hay error de red real
       status.className = 'status-msg error';
-      status.innerHTML = '✗ Ocurrió un error al enviar. Por favor inténtalo de nuevo o contacta a los organizadores.';
+      status.style.display = 'block';
+      status.innerHTML = '✗ Ocurrió un error de red. Por favor inténtalo de nuevo o contacta a los organizadores.';
+      btn.disabled = false;
+      txt.textContent = 'Enviar inscripción';
+      spin.style.display = 'none';
     }
 
     btn.disabled = false;
