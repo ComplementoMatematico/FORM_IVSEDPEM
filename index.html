@@ -510,7 +510,7 @@
   </div>
 
   <form id="mainForm"
-    action="https://script.google.com/macros/s/AKfycbzJV-0UZEX7ge6rfmvnCZ1U9DVb5YJR842Zf5PXoDxhu4FB9ywyVK4hELhupMJFAz2lUA"
+    action="https://script.google.com/macros/s/AKfycbzJV-0UZEX7ge6rfmvnCZ1U9DVb5YJR842Zf5PXoDxhu4FB9ywyVK4hELhupMJFAz2lUA/exec"
     method="POST">
 
     <!-- ── SECCIÓN 1: DATOS PERSONALES ── -->
@@ -950,27 +950,42 @@
 </script>
 
   <script>
-  // ── Cupos en tiempo real desde Google Apps Script ──
-  // INSTRUCCIÓN: Reemplaza QUOTA_ENDPOINT con la URL de tu Apps Script de cuotas
-  const QUOTA_ENDPOINT = 'https://https://script.google.com/macros/s/AKfycbzJV-0UZEX7ge6rfmvnCZ1U9DVb5YJR842Zf5PXoDxhu4FB9ywyVK4hELhupMJFAz2lUA/exec';
+  // ── Cupos en tiempo real desde Google Apps Script (JSONP) ──
+  const QUOTA_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzJV-0UZEX7ge6rfmvnCZ1U9DVb5YJR842Zf5PXoDxhu4FB9ywyVK4hELhupMJFAz2lUA/exec';
 
-  async function fetchQuotas() {
-    if (QUOTA_ENDPOINT === 'TU_APPS_SCRIPT_QUOTA_URL_AQUI') return; // No configurado aún
-    try {
-      const res = await fetch(QUOTA_ENDPOINT);
-      const data = await res.json();
-      // data esperado: { cursillo1: 12, cursillo2: 5, cursillo3: 0 }
-      ['cursillo1','cursillo2','cursillo3'].forEach((id, i) => {
-        if (data[id] !== undefined) {
-          updateQuota(id, data[id]);
-        }
+  function fetchQuotas() {
+    // Limpiar script JSONP anterior si existe
+    const old = document.getElementById('jsonp-quota');
+    if (old) old.remove();
+
+    // Nombre único del callback para evitar colisiones
+    const cbName = '__quotaCb_' + Date.now();
+
+    // Definir el callback global que el Apps Script llamará
+    window[cbName] = function(data) {
+      // Actualizar barras de cupo
+      ['cursillo1','cursillo2','cursillo3'].forEach(id => {
+        if (data[id] !== undefined) updateQuota(id, data[id]);
       });
       // Refrescar estado de botones según rol actual
       const rol = document.getElementById('rolSelect').value;
       if (rol) handleRolChange(document.getElementById('rolSelect'));
-    } catch(e) {
-      console.warn('No se pudo cargar cupos en tiempo real:', e);
-    }
+      // Limpiar callback y script del DOM
+      delete window[cbName];
+      const s = document.getElementById('jsonp-quota');
+      if (s) s.remove();
+    };
+
+    // Inyectar <script> con ?callback=cbName
+    const script = document.createElement('script');
+    script.id = 'jsonp-quota';
+    script.src = QUOTA_ENDPOINT + '?callback=' + cbName;
+    script.onerror = function() {
+      console.warn('No se pudo cargar cupos en tiempo real.');
+      delete window[cbName];
+      this.remove();
+    };
+    document.body.appendChild(script);
   }
 
   // Llamar al cargar y cada 60 segundos
